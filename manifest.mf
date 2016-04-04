@@ -1,0 +1,7 @@
+Manifest-Version: 1.0
+X-COMMENT: Main-Class will be added automatically by build
+Codebase: *
+Permissions: all-permissions
+Application-Name: ComponentArch: Web Start on Jython
+Entry-Point: webStartOnJython.Main
+Main-Class: webStartOnJython.Main

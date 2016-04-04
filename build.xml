@@ -1,0 +1,153 @@
+<project name="Web Start on Jython" basedir="." default="deploy.local">
+  <!-- Load properties -->
+  <property file="build.properties"/>
+
+  <property name="jython.jar" value="jython.jar"/>
+
+  <!-- Set variables for build directories -->
+  <property name="build.dir" value="build"/>
+  <property name="src.dir" value="src"/>
+  <property name="images.dir" value="images"/>
+
+  <tstamp>
+    <format property="TIMESTAMP" pattern="yyyyMMddHHmmss"/>
+  </tstamp>
+
+  <target name="clean" description="Clean up">
+    <echo>Cleaning up...</echo>
+    <delete dir="${build.dir}"/>
+  </target>
+
+  <target name="init" depends="clean">
+    <echo>Creating temporary folders...</echo>
+    <mkdir dir="${build.dir}"/>
+  </target>
+
+  <target name="jyson" depends="init">
+    <echo>Compiling Jyson</echo>
+    <mkdir dir="${build.dir}/lib/jyson-classes"/>
+    <javac srcdir="${lib.dir}/jyson/src/com/xhaus/jyson"
+           destdir="${build.dir}/lib/jyson-classes">
+      <classpath>
+        <pathelement path="${lib.dir}/${jython.jar}"/>
+        <pathelement path="${lib.dir}/PlyJy.jar"/>
+      </classpath>
+    </javac>
+  </target>
+
+  <target name="jyson-jar" depends="jyson">
+    <echo>Building Jyson JAR</echo>
+    <jar destfile="${build.dir}/lib/jyson.jar"
+         basedir="${build.dir}/lib/jyson-classes/"
+         manifest="${manifest.file}">
+    </jar>
+  </target>
+
+  <target name="build" depends="init,jyson-jar" description="Build project">
+    <echo>Copying files to build folder...</echo>
+    <copy todir="${build.dir}">
+      <fileset dir="${src.dir}"/>
+    </copy>
+    <mkdir dir="${build.dir}/webStartOnJython/classes"/>
+    <javac srcdir="${src.dir}/webStartOnJython"
+           destdir="${build.dir}/webStartOnJython/classes">
+      <classpath>
+        <pathelement path="${lib.dir}/${jython.jar}"/>
+        <pathelement path="${lib.dir}/PlyJy.jar"/>
+      </classpath>
+    </javac>
+  </target>
+
+  <target name="check-keystore" depends="init">
+    <available file="${verisign.key.store}" property="${verisign.key.store}.present"/>
+  </target>
+
+  <target name="generate-keystore" depends="check-keystore" unless="${verisign.key.store}.present">
+    <genkey alias="${verisign.key.alias}" verbose="true" storepass="${verisign.key.storepass}"
+            keypass="${verisign.key.pass}" validity="365" keystore="${verisign.key.store}">
+      <dname>
+        <param name="CN" value="PyProject"/>
+        <param name="OU" value="PyProject"/>
+        <param name="O"  value="PyProject"/>
+        <param name="C"  value="US"/>
+      </dname>
+    </genkey>
+  </target>
+
+  <target name="jar" depends="build" description="Create JAR file">
+    <echo>Creating JAR file</echo>
+    <mkdir dir="${build.dir}/jar"/>
+    <jar destfile="${build.dir}/jar/webStartOnJython.jar"
+         basedir="${build.dir}/webStartOnJython/classes/"
+         manifest="${manifest.file}">
+      <manifest>
+        <attribute name="Implementation-Version" value="${TIMESTAMP}" />
+      </manifest>
+      <zipgroupfileset includes="*.jar" dir="${lib.dir}"/>
+      <zipgroupfileset includes="*.jar" dir="${build.dir}/lib"/>
+      <fileset dir="${src.dir}/webStartOnJython/Lib" includes="*.py"/>
+      <fileset dir="." includes="${images.dir}/**"/>
+    </jar>
+  </target>
+
+  <target name="jar.signed" depends="jar, generate-keystore" description="Signing JAR file">
+    <echo>Repack with pack200</echo>
+    <apply executable="pack200" parallel="false">
+      <arg value="--repack"/>
+      <arg value="--strip-debug"/>
+      <arg value="--no-keep-file-order"/>
+      <arg value="--effort=9"/>
+      <arg value="--quiet"/>
+      <fileset dir="${build.dir}/jar" includes="**/*.jar" />
+    </apply>
+    <echo>Signing JAR file</echo>
+    <signjar jar="${build.dir}/jar/webStartOnJython.jar"
+             signedjar="${build.dir}/jar/webStartOnJython-signed__V${TIMESTAMP}.jar"
+             keystore="${verisign.key.store}"
+             storepass="${verisign.key.storepass}"
+             alias="${verisign.key.alias}"
+             keypass="${verisign.key.pass}" />
+             <!-- tsaurl="${verisign.key.tsaurl}"/> -->
+    <echo>Pack with pack200</echo>
+    <apply executable="pack200" parallel="false">
+      <arg value="--quiet"/>
+      <arg value="${build.dir}/jar/webStartOnJython-signed__V${TIMESTAMP}.jar.pack.gz"/>
+      <fileset dir="${build.dir}/jar" includes="webStartOnJython-signed__V${TIMESTAMP}.jar" />
+    </apply>
+
+  </target>
+
+  <target name="deploy.local" depends="jar" description="Deploy to local webserver">
+    <echo>Deleting files from local webserver...</echo>
+    <mkdir dir="${deploy.dir.local}"/>
+    <delete>
+      <fileset dir="${deploy.dir.local}"/>
+    </delete>
+    <echo>Copying files to local webserver...</echo>
+    <copy todir="${deploy.dir.local}">
+      <fileset dir="${build.dir}/jar" includes="*.jar"/>
+    </copy>
+    <antcall target="clean"/>
+  </target>
+
+  <target name="deploy" depends="jar.signed" description="Deploy">
+    <echo>Deleting files from local webserver...</echo>
+    <mkdir dir="${deploy.dir.local}"/>
+    <delete>
+      <fileset dir="${deploy.dir.local}"/>
+    </delete>
+    <echo>Copying files to local webserver...</echo>
+    <copy todir="${deploy.dir.local}">
+      <fileset dir="${build.dir}/jar" includes="*.jar"/>
+      <fileset dir="${build.dir}/jar" includes="*.jar.pack.gz"/>
+    </copy>
+    <echo>Copying to the file name without timestamp</echo>
+    <copy file="${deploy.dir.local}/webStartOnJython-signed__V${TIMESTAMP}.jar" tofile="${deploy.dir.local}/webStartOnJython-signed.jar" />
+    <antcall target="clean"/>
+  </target>
+
+  <target name="run">
+    <java jar="${deploy.dir.local}/webStartOnJython.jar" args="some-arg" fork="true"/>
+  </target>
+
+</project>

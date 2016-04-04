@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<jnlp href="launch.jnlp" spec="1.0+"
+      codebase="http://localhost:5000">
+    <information>
+        <title>Web Start on Jython</title>
+        <vendor>PyProject</vendor>
+    </information>
+    <resources>
+        <j2se version="1.7+" href="http://java.sun.com/products/autodl/j2se"/>
+        <jar href="bin/webStartOnJython-signed.jar" main="true"/>
+    </resources>
+    <application-desc main-class="webStartOnJython.Main">
+    </application-desc>
+</jnlp>
