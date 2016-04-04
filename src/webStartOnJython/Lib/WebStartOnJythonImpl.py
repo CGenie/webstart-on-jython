@@ -34,9 +34,13 @@ from webStartOnJython.interfaces import JySwingType
 
 from javax.swing import JOptionPane
 
+import com.xhaus.jyson.JysonCodec as json
+
 
 class WebStartOnJythonImpl(JySwingType, object):
     def start(self, args):
         print 'Starting Python with args: %s' % args
 
-        JOptionPane.showMessageDialog(None, "Hello world")
+        serialized = json.dumps({'hello': 'world'})
+
+        JOptionPane.showMessageDialog(None, "Hello world: %s" % serialized)
